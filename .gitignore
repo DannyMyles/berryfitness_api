@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+*.log
+backups
+.mail-preview
+
+# Uploaded and seeded images
+uploads/
+# One-time database setup file (contains a password)
+.db-setup.sql
