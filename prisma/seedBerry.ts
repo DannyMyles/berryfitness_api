@@ -254,7 +254,7 @@ const SERVICES: ServiceSeed[] = [
     ...ON_REQUEST,
     category: 'Programs',
     audience: 'individual',
-    image: '/images/services/kids-program.jpg',
+    image: '/images/services/kids-training.jpg',
     icon: 'Smile',
   },
   {
@@ -304,7 +304,7 @@ const SERVICES: ServiceSeed[] = [
     pricingType: 'fixed',
     category: 'Sessions',
     audience: 'both',
-    image: '/images/certifications.jpg',
+    image: '/images/services/group-cycling.jpg',
     icon: 'Bike',
   },
   {
@@ -319,6 +319,17 @@ const SERVICES: ServiceSeed[] = [
     image: '/images/about.jpg',
     icon: 'Video',
     duration: '1 hour',
+  },
+  {
+    title: 'Bootcamp Training',
+    description: 'Outdoor group bootcamp sessions in the fresh air, with stretching, tyre work and dumbbell circuits.',
+    features: ['Outdoor group training', 'Tyre and dumbbell workouts', 'Stretching and conditioning'],
+    price: 'From $100',
+    pricingType: 'quote',
+    category: 'Outdoor',
+    audience: 'both',
+    image: '/images/services/bootcamp-training.jpg',
+    icon: 'Flame',
   },
   {
     title: 'Corporate Group Fitness',
@@ -492,6 +503,8 @@ const GALLERY = [
   { slug: 'general', name: 'General' },
   { slug: 'elephant-hill-hike', name: 'Elephant Hill Hike' },
   { slug: 'ngong-hills-hike', name: 'Ngong Hills Hike' },
+  { slug: 'bootcamp-training', name: 'Bootcamp Training' },
+  { slug: 'group-cycling', name: 'Group Cycling' },
 ];
 
 // Home slideshow (banners with placement "slider"). Wording is from the source site.
