@@ -7,6 +7,7 @@ import { normalizeWhatsAppNumber } from '../services/whatsapp';
 import { mergeSiteSettings, parseSiteSettings, siteSettingsSchema } from '../services/siteSettings';
 import { deliverEmail, deliveryMessage, isEmailConfigured } from '../mailer';
 import { phoneSchema } from '../utils/validation';
+import { uploadBrandingImage, uploadUrl } from '../uploads';
 
 export const appInfoRouter = Router();
 
@@ -116,6 +117,23 @@ appInfoRouter.put('/', requireAdminKey, async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+/**
+ * @openapi
+ * /api/v1/app/images:
+ *   post:
+ *     summary: Upload an image for the website settings (hero, page banners, about, team photos). Returns its URL (admin)
+ *     tags: [App]
+ *     security: [{ AdminKey: [] }, { BearerAuth: [] }]
+ */
+// Admin check runs before multer so unauthenticated requests never write a file.
+appInfoRouter.post('/images', requireAdminKey, uploadBrandingImage.single('image'), (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ error: 'Choose an image to upload' });
+    return;
+  }
+  res.status(201).json({ url: uploadUrl(req, 'branding', req.file.filename) });
 });
 
 const testEmailSchema = z.object({ to: z.string().trim().email() });
