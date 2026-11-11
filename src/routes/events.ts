@@ -18,7 +18,7 @@ import {
   bookingReminderEmail,
   BookingForEmail,
 } from '../mailer';
-import { uploadEventImage, uploadPath, removeUpload } from '../uploads';
+import { uploadEventImage, uploadPath, removeUpload, publicUploadUrl } from '../uploads';
 import { parseId, urlOrPathSchema, phoneSchema } from '../utils/validation';
 import { generateReference } from '../utils/reference';
 import { assertOwned, uniqueSlugFor } from '../utils/tenantScope';
@@ -37,7 +37,7 @@ export const eventsRouter = Router();
 const MAX_PARTICIPANTS = 20;
 const EVENT_KINDS = ['event', 'adventure'] as const;
 
-function imageInfoFor(event: { id: number; imageFilename: string | null; imageUrl: string | null; imageContentType?: string | null; imageSize?: number | null }) {
+function imageInfoFor(appKey: string, event: { id: number; imageFilename: string | null; imageUrl: string | null; imageContentType?: string | null; imageSize?: number | null }) {
   const hasImage = Boolean(event.imageFilename || event.imageUrl);
   return {
     hasImage,
@@ -45,14 +45,14 @@ function imageInfoFor(event: { id: number; imageFilename: string | null; imageUr
     contentType: event.imageContentType ?? undefined,
     size: event.imageSize ?? undefined,
     // Site images are served directly so the website can resize them; uploads go through the image route.
-    url: !event.imageFilename && event.imageUrl?.startsWith('/images/') ? event.imageUrl : hasImage ? `/api/v1/events/${event.id}/image` : '',
+    url: !event.imageFilename && event.imageUrl?.startsWith('/images/') ? event.imageUrl : event.imageFilename ? publicUploadUrl(appKey, 'events', event.imageFilename) : hasImage ? `/api/v1/events/${event.id}/image` : '',
   };
 }
 
 type EventRow = Prisma.EventGetPayload<object>;
 
-function serializeEvent(event: EventRow, spotsTaken: number) {
-  const imageInfo = imageInfoFor(event);
+function serializeEvent(appKey: string, event: EventRow, spotsTaken: number) {
+  const imageInfo = imageInfoFor(appKey, event);
   return {
     id: event.id,
     title: event.title,
@@ -156,9 +156,9 @@ async function spotsTakenFor(eventIds: number[]): Promise<Map<number, number>> {
   return new Map(rows.map((r) => [r.eventId, r._sum.participants ?? 0]));
 }
 
-async function serializeEvents(events: EventRow[]) {
+async function serializeEvents(appKey: string, events: EventRow[]) {
   const taken = await spotsTakenFor(events.map((e) => e.id));
-  return events.map((e) => serializeEvent(e, taken.get(e.id) ?? 0));
+  return events.map((e) => serializeEvent(appKey, e, taken.get(e.id) ?? 0));
 }
 
 /**
@@ -183,7 +183,7 @@ eventsRouter.get('/', optionalAuth, async (req, res, next) => {
     }
 
     const events = await prisma.event.findMany({ where, orderBy: { date: 'asc' } });
-    res.json({ events: await serializeEvents(events) });
+    res.json({ events: await serializeEvents(tenantOf(req).key, events) });
   } catch (err) {
     next(err);
   }
@@ -215,7 +215,7 @@ eventsRouter.get('/registrations/mine', requireAuth, async (req, res, next) => {
           time: reg.event.time,
           location: reg.event.location,
           price: reg.event.price,
-          image: imageInfoFor(reg.event).url,
+          image: imageInfoFor(tenantOf(req).key, reg.event).url,
         },
       })),
     });
@@ -392,7 +392,7 @@ eventsRouter.get('/:id/edit', requireAdminKey, async (req, res, next) => {
   try {
     const event = await prisma.event.findFirst({ where: { id: parseId(req.params.id), appId: tenantOf(req).id } });
     if (!event) throw new ApiError(404, 'Event not found');
-    res.json({ event: (await serializeEvents([event]))[0] });
+    res.json({ event: (await serializeEvents(tenantOf(req).key, [event]))[0] });
   } catch (err) {
     next(err);
   }
@@ -420,7 +420,7 @@ eventsRouter.get('/:slug', optionalAuth, async (req, res, next) => {
       where: { appId_slug: { appId: tenantOf(req).id, slug: req.params.slug } },
     });
     if (!event || (!event.published && req.user?.role !== 'admin')) throw new ApiError(404, 'Event not found');
-    res.json({ event: (await serializeEvents([event]))[0] });
+    res.json({ event: (await serializeEvents(tenantOf(req).key, [event]))[0] });
   } catch (err) {
     next(err);
   }
@@ -515,7 +515,7 @@ eventsRouter.post('/', requireAdminKey, uploadEventImage.single('image'), async 
         published: input.published ?? true,
       },
     });
-    res.status(201).json({ event: serializeEvent(event, 0) });
+    res.status(201).json({ event: serializeEvent(tenantOf(req).key, event, 0) });
   } catch (err) {
     removeUpload(req, 'events', req.file?.filename);
     next(err);
@@ -564,7 +564,7 @@ eventsRouter.put('/:id', requireAdminKey, uploadEventImage.single('image'), asyn
 
     const event = await prisma.event.update({ where: { id }, data });
     if (file || input.imageUrl) removeUpload(req, 'events', existing.imageFilename);
-    res.json({ event: (await serializeEvents([event]))[0] });
+    res.json({ event: (await serializeEvents(tenantOf(req).key, [event]))[0] });
   } catch (err) {
     removeUpload(req, 'events', req.file?.filename);
     next(err);

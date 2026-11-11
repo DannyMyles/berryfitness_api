@@ -22,6 +22,15 @@ export function uploadDir(req: Request, kind: UploadKind): string {
   return dir;
 }
 
+/**
+ * Public URL of a stored upload, served by the static /uploads route. Image
+ * fields use this (not the /api/v1/... file routes) because hosted image
+ * optimisers such as Vercel's reject source paths under /api.
+ */
+export function publicUploadUrl(appKey: string, kind: UploadKind, filename: string): string {
+  return `/uploads/${appKey}/${kind}/${path.basename(filename)}`;
+}
+
 /** Absolute path of a stored upload for this app; `filename` is a DB value. */
 export function uploadPath(req: Request, kind: UploadKind, filename: string): string {
   return path.join(uploadsRoot, tenantOf(req).key, kind, path.basename(filename));

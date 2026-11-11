@@ -4,7 +4,7 @@ import { prisma } from '../prisma';
 import { requireAdminRole } from '../middleware/userAuth';
 import { ApiError } from '../middleware/errorHandler';
 import { slugify } from '../utils/slugify';
-import { uploadGalleryImages, uploadPath, removeUpload } from '../uploads';
+import { uploadGalleryImages, uploadPath, removeUpload, publicUploadUrl } from '../uploads';
 import { tenantOf } from '../middleware/tenant';
 import { assertOwned, uniqueSlugFor } from '../utils/tenantScope';
 import { parseId } from '../utils/validation';
@@ -23,12 +23,12 @@ function serializeCategory(c: any) {
   };
 }
 
-function serializeImage(img: any) {
+function serializeImage(img: any, appKey: string) {
   return {
     id: String(img.id),
     title: img.title ?? undefined,
     categoryId: String(img.categoryId),
-    url: `/api/v1/gallery/images/${img.id}/file`,
+    url: img.filename ? publicUploadUrl(appKey, 'gallery', img.filename) : `/api/v1/gallery/images/${img.id}/file`,
     createdAt: img.createdAt,
   };
 }
@@ -138,7 +138,7 @@ galleryRouter.get('/images', async (req, res, next) => {
       ...(categoryId ? { categoryId: parseId(categoryId) } : {}),
     };
     const images = await prisma.galleryImage.findMany({ where, orderBy: { createdAt: 'desc' } });
-    res.json({ images: images.map(serializeImage) });
+    res.json({ images: images.map((i) => serializeImage(i, tenantOf(req).key)) });
   } catch (err) {
     next(err);
   }
@@ -183,7 +183,7 @@ galleryRouter.post(
           categoryId: input.categoryId,
         },
       });
-      res.status(201).json({ image: serializeImage(image) });
+      res.status(201).json({ image: serializeImage(image, tenantOf(req).key) });
     } catch (err) {
       next(err);
     }
@@ -222,7 +222,7 @@ galleryRouter.post(
           })
         )
       );
-      res.status(201).json({ images: images.map(serializeImage) });
+      res.status(201).json({ images: images.map((i) => serializeImage(i, tenantOf(req).key)) });
     } catch (err) {
       next(err);
     }
