@@ -29,9 +29,10 @@ import { resolveTenant } from './middleware/tenant';
 
 export const app = express();
 
-// Behind the frontends' Next.js proxies (and any reverse proxy in prod) —
-// trust one hop so rate limiting keys on the real client IP.
-app.set('trust proxy', 1);
+// Behind the frontend's Next.js proxy (and any reverse proxy in prod), trust
+// that many hops so rate limiting keys on the real client IP. Local dev has one
+// hop (Next.js); production behind Vercel + nginx has two (TRUST_PROXY=2).
+app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1));
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({ origin: env.corsOrigins }));
 app.use(express.json({ limit: '200kb' }));
